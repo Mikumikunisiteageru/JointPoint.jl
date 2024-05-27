@@ -1,0 +1,20 @@
+name = "ZigZagFit"
+uuid = "5bc3b04b-d657-4938-bb08-b70cfb2aa123"
+authors = ["Yu-Chang YANG <yang.yc.allium@gmail.com>"]
+version = "0.0.1"
+
+[deps]
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+
+[compat]
+Interpolations = "0.14"
+Optim = "1.9"
+julia = "1"
+
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Aqua", "Test"]
