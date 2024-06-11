@@ -1,6 +1,7 @@
 # test/runtests.jl
 
 using Aqua
+using DelimitedFiles
 using JointPoint
 using Test
 
@@ -21,11 +22,16 @@ Aqua.test_deps_compat(JointPoint)
 		(n * sum(xc .* xc) - sum(xc) ^ 2)
 	b = n \ sum(yc) - a / n * sum(xc)
 	xj0, yj0 = findjoint(xc, yc, 0)
-	@test isapprox(xj0, [0, 10]; atol=1e-6)
-	@test isapprox(yj0, a .* [0, 10] .+ b; atol=1e-3)
+	@test xj0 == [0, 10]
+	@test isapprox(yj0, a .* [0, 10] .+ b; atol=1e-6)
 	xj1, yj1 = findjoint(xc, yc, 1)
 	@test isa(xj1, Vector{Float64})
 	@test isa(yj1, Vector{Float64})
-	@test isapprox(xj1, [0, 5, 10]; atol=1e-6)
-	@test isapprox(yj1, [0, 10, 25]; atol=1e-6)
+	@test isapprox(xj1, [0, 5, 10]; atol=1e-10)
+	@test isapprox(yj1, [0, 10, 25]; atol=1e-10)
+	xc1k = 0:0.1:100
+	yc1k = reverse(readdlm("yc1k.txt")[:])
+	xj1k, yj1k = findjoint(xc1k, yc1k, 2)
+	@test isapprox(xj1k, Float32[0.0, 6.7500896f-6, 4.549954, 100.0])
+	@test isapprox(yj1k, Float32[22.794033, 24.700888, 0.45906147, -0.22167367])
 end
