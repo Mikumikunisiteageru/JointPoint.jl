@@ -9,7 +9,7 @@ Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 
 [compat]
 Aqua = "0.8"
-Interpolations = "0.14"
+Interpolations = "0.14.7"
 Optim = "1.9"
 Test = "1"
 julia = "1"
