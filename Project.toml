@@ -1,7 +1,7 @@
 name = "JointPoint"
 uuid = "5bc3b04b-d657-4938-bb08-b70cfb2aa123"
 authors = ["Yu-Chang YANG <yang.yc.allium@gmail.com>"]
-version = "0.0.2"
+version = "0.0.3"
 
 [deps]
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
