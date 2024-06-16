@@ -2,26 +2,22 @@
 
 module JointPoint
 
+using BlackBoxOptim
 using Interpolations
-using LogExpFunctions
-using Optim
 
 export findjoint
 
 function findjoint(xc::AbstractVector{<:AbstractFloat}, 
-				   yc::AbstractVector{<:AbstractFloat}, k::Integer; kwargs...)
+				   yc::AbstractVector{<:AbstractFloat}, k::Integer; p=1, kwargs...)
 	@assert issorted(xc, lt=<=)
 	n = length(xc)
 	@assert n == length(yc)
 	xcl = xc[begin]
 	xcr = xc[end]
-	u2x(u) = (xcr - xcl) * logistic(u) + xcl
-	x2u(x) = logit((x - xcl) / (xcr - xcl))
+	ycd, ycu = extrema(yc)
 	function p2xy(params)
-		mat = [-Inf; params[1:2*k+1]; +Inf; params[2*k+2]]
-		uj, yj = eachrow(sortslices(reshape(mat, 2, k+2), dims=2))
-		xj = u2x.(uj)
-		return xj, yj
+		mat = [xcl; params[1:2*k+1]; xcr; params[2*k+2]]
+		return eachrow(sortslices(reshape(mat, 2, k+2), dims=2))
 	end
 	function f(params)
 		xj, yj = p2xy(params)
@@ -29,15 +25,12 @@ function findjoint(xc::AbstractVector{<:AbstractFloat},
 		return sqrt(sum((interp.(xc) .- yc) .^ 2))
 	end
 	ind = round.(Int, range(1, 10, length=k+2))
-	params = permutedims(hcat(x2u.(xc[ind]), yc[ind]))[[2:2*k+2; 2*k+4]]
-	niter = 3000
-	while true
-		result = optimize(f, params; 
-			x_tol=0.0, f_tol=0.0, g_tol=1e-12, iterations=niter, kwargs...)
-		params = result.minimizer
-		Optim.converged(result) && break
-		niter *= 2
-	end
+	params = permutedims(hcat(xc[ind], yc[ind]))[[2:2*k+2; 2*k+4]]
+	xrange = (xcl, xcr)
+	yrange = ((p+1) * ycd - p * ycu, (p+1) * ycu - p * ycd)
+	searchrange = vcat(fill(xrange, 1, k+2), fill(yrange, 1, k+2))[[2:2*k+2; 2*k+4]]
+	res = bboptimize(f; SearchRange=searchrange, TraceMode=:silent, kwargs...)
+	params = best_candidate(res)
 	return collect.(p2xy(params))
 end
 findjoint(xc::AbstractVector{<:Real}, yc::AbstractVector{<:Real}, k::Integer) = 
