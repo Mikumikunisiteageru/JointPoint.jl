@@ -4,6 +4,7 @@ module JointPoint
 
 using BlackBoxOptim
 using Interpolations
+using LinearAlgebra
 
 export findjoint, aicc
 
@@ -13,31 +14,47 @@ function rss(xc::AbstractVector{<:AbstractFloat}, yc::AbstractVector{<:AbstractF
 	return sum((interp.(xc) .- yc) .^ 2)
 end
 
+function xjinner2xjyj(xc, yc, xjinner)
+	T = float(promote_type(eltype(xc), eltype(yc)))
+	xj = [xc[begin]; xjinner; xc[end]]
+	m = length(xj)
+	dl = zeros(T, m-1)
+	d = zeros(T, m)
+	du = zeros(T, m-1)
+	right = zeros(T, m)
+	id = [0; searchsortedlast.([xc], xj[2:m])]
+	for j = 1:m-1
+		i = id[j]+1:id[j+1]
+		a, b = xj[j:j+1]
+		d[j:j+1] .+= sum(@.((b-xc[i]) * (xc[i]-a)))
+		du[j] = sum(@.((xc[i]-a) ^ 2))
+		dl[j] = sum(@.((b-xc[i]) ^ 2))
+		right[j] += sum(@.((xc[i]-a) * (b-a) * yc[i]))
+		right[j+1] += sum(@.((b-xc[i]) * (b-a) * yc[i]))
+	end
+	left = Tridiagonal(dl, d, du)
+	yj = pinv(left) * right
+	return xj, yj
+end
+
 function findjoint(xc::AbstractVector{<:AbstractFloat}, 
-				   yc::AbstractVector{<:AbstractFloat}, k::Integer; p=1, kwargs...)
+				   yc::AbstractVector{<:AbstractFloat}, k::Integer; kwargs...)
 	@assert issorted(xc, lt=<=)
 	n = length(xc)
 	@assert n == length(yc)
-	xcl = xc[begin]
-	xcr = xc[end]
-	ycd, ycu = extrema(yc)
-	function p2xy(params)
-		mat = [xcl; params[1:2*k+1]; xcr; params[2*k+2]]
-		return eachrow(sortslices(reshape(mat, 2, k+2), dims=2))
-	end
-	function f(params)
-		xj, yj = p2xy(params)
+	function f(xjinner)
+		xj, yj = xjinner2xjyj(xc, yc, sort(xjinner))
 		return rss(xc, yc, xj, yj)
 	end
-	ind = round.(Int, range(1, 10, length=k+2))
-	params = permutedims(hcat(xc[ind], yc[ind]))[[2:2*k+2; 2*k+4]]
-	xrange = (xcl, xcr)
-	yrange = ((p+1) * ycd - p * ycu, (p+1) * ycu - p * ycd)
-	searchrange = vcat(fill(xrange, 1, k+2), fill(yrange, 1, k+2))[[2:2*k+2; 2*k+4]]
-	res = bboptimize(f; SearchRange=searchrange, MaxStep=300000, MaxTime=10, 
-		MinDeltaFitnessTolerance=1e-20, kwargs...)
-	params = best_candidate(res)
-	return collect.(p2xy(params))
+	xjinner = if k > 0
+		searchrange = fill((xc[begin], xc[end]), k)
+		res = bboptimize(f; SearchRange=searchrange, MaxStep=300000, MaxTime=10, 
+			MinDeltaFitnessTolerance=1e-20, kwargs...)
+		best_candidate(res)
+	else
+		eltype(xc)[]
+	end
+	return xjinner2xjyj(xc, yc, sort(xjinner))
 end
 findjoint(xc::AbstractVector{<:Real}, yc::AbstractVector{<:Real}, k::Integer) = 
 	findjoint(float(xc), float(yc), k)

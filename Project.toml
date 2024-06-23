@@ -1,17 +1,19 @@
 name = "JointPoint"
 uuid = "5bc3b04b-d657-4938-bb08-b70cfb2aa123"
 authors = ["Yu-Chang YANG <yang.yc.allium@gmail.com>"]
-version = "0.0.3"
+version = "0.0.4"
 
 [deps]
 BlackBoxOptim = "a134a8b2-14d6-55f6-9291-3336d3ab0209"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [compat]
 Aqua = "0.8"
 BlackBoxOptim = "0.6.3"
 DelimitedFiles = "1"
 Interpolations = "0.14.7"
+LinearAlgebra = "1"
 Test = "1"
 julia = "1"
 
