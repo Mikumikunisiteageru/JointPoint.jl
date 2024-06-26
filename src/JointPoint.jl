@@ -13,43 +13,57 @@ function rss(xc, yc, xj, yj)
 	return sum((interp.(xc) .- yc) .^ 2)
 end
 
-function xjcore2xjyj(xc, yc, xjcore)
-	T = float(promote_type(eltype(xc), eltype(yc)))
-	xj = [xc[begin]; xjcore; xc[end]]
-	m = length(xj)
-	dl = zeros(T, m-1)
-	d = zeros(T, m)
-	du = zeros(T, m-1)
-	right = zeros(T, m)
-	id = [0; searchsortedlast.([xc], xj[2:m])]
-	for j = 1:m-1
-		i = id[j]+1:id[j+1]
-		a, b = xj[j:j+1]
-		bma = b - a
-		bmx = b .- xc[i]
-		xma = xc[i] .- a
-		d[j:j+1] .+= sum(bmx .* xma)
-		du[j] = sum(xma .^ 2)
-		dl[j] = sum(bmx .^ 2)
-		right[j] += bma * sum(xma .* yc[i])
-		right[j+1] += bma * sum(bmx .* yc[i])
-	end
-	left = Tridiagonal(dl, d, du)
-	yj = try
-		left \ right
-	catch
-		pinv(left) * right
-	end
-	return xj, yj
+struct IntervalSum{T<:AbstractFloat}
+	c::Vector{T}
+	IntervalSum(v::AbstractVector{T}) where {T <: AbstractFloat} = new{T}(cumsum(v))
 end
+
+Base.getindex(f::IntervalSum, a::Integer, b::Integer) = a > 0 ? f.c[b] - f.c[a] : f.c[b]
 
 function findjoint(xc::AbstractVector{T}, 
 				   yc::AbstractVector{T}, k::Integer; kwargs...) where {T<:AbstractFloat}
 	issorted(xc, lt=<=) || throw(ArgumentError("`xc` must be strictly increasing"))
 	n = length(xc)
 	n == length(yc) || throw(ArgumentError("`xc` and `yc` must have the same length"))
+	cxi2  = IntervalSum(xc .^ 2)
+	cxi   = IntervalSum(xc)
+	cxiyi = IntervalSum(xc .* yc)
+	cyi   = IntervalSum(yc)
+	cone  = IntervalSum(ones(T, n))
+	m = k + 2
+	function xjcore2xjyj(xjcore)
+		xj = [xc[begin]; sort(xjcore); xc[end]]
+		dl = zeros(T, m-1)
+		d  = zeros(T, m)
+		du = zeros(T, m-1)
+		right = zeros(T, m)
+		# creating new vectors are faster than zeroing old ones since they are small
+		id = [0; searchsortedlast.([xc], xj[2:m])]
+		for j = 1:m-1
+			sm1, t = id[j], id[j+1]
+			sxi2  = cxi2[sm1, t]
+			sxi   = cxi[sm1, t]
+			sxiyi = cxiyi[sm1, t]
+			syi   = cyi[sm1, t]
+			sone  = cone[sm1, t]
+			a, b = xj[j:j+1]
+			bma = b - a
+			d[j:j+1]  .+= (a+b) * sxi - sxi2 - a*b * sone
+			du[j]       = sxi2 - 2*a * sxi + a^2 * sone
+			dl[j]       = sxi2 - 2*b * sxi + b^2 * sone
+			right[j]   += bma * (sxiyi - a * syi)
+			right[j+1] += bma * (b * syi - sxiyi)
+		end
+		left = Tridiagonal(dl, d, du)
+		yj = try
+			left \ right
+		catch
+			pinv(left) * right
+		end
+		return xj, yj
+	end
 	function f(xjcore)
-		xj, yj = xjcore2xjyj(xc, yc, sort(xjcore))
+		xj, yj = xjcore2xjyj(xjcore)
 		return rss(xc, yc, xj, yj)
 	end
 	xjcore = if k > 0
@@ -61,7 +75,7 @@ function findjoint(xc::AbstractVector{T},
 	else
 		T[]
 	end
-	return xjcore2xjyj(xc, yc, sort(xjcore))
+	return xjcore2xjyj(xjcore)
 end
 findjoint(xc::AbstractVector{<:AbstractFloat}, 
 		  yc::AbstractVector{<:AbstractFloat}, k::Integer; kwargs...) = 
